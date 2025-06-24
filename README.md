@@ -16,7 +16,7 @@ LibChat 是一个基于 RAG (Retrieval-Augmented Generation) 技术的命令行�
 首先，请确保您已经安装了 Python 3.8 或更高版本。然后，克隆本仓库并安装所需的依赖：
 
 ```bash
-git clone https://github.com/your-username/LibChat.git
+git clone https://github.com/whaleylee/LibChat.git
 cd LibChat
 pip install -r requirements.txt
 ```
