@@ -12,6 +12,7 @@
     llama-index
     llama-index-embeddings-huggingface
     llama-index-llms-huggingface
+    llama-index-vector-stores-faiss
     sentence-transformers
     faiss-cpu
     transformers
