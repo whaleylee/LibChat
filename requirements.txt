@@ -22,3 +22,6 @@
 
     # BM25
     rank_bm25
+
+    # Visualization
+    streamlit

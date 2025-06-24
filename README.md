@@ -50,6 +50,14 @@ python main.py build requests
 python main.py ask requests "如何使用requests发送一个带header的POST请求？"
 ```
 
+同时，为了方便您的使用，也可以开启可视化界面，运行以下指令：
+
+```bash
+streamlit run app.py
+```
+
+在浏览器访问http://localhost:8501/，即可开启前端界面。
+
 ## 🛠️ 技术栈
 
 - **命令行界面**: Typer, Rich

@@ -58,13 +58,13 @@ console = Console()
 CONFIG = {
     "embedding_model": os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5"),
     "reranker_model": os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-large"), 
-    "qwen_model": "qwen-turbo",
+    "qwen_model": "Qwen/Qwen3-32B",
     "qwen_api_key": os.getenv("QWEN_API_KEY"),
-    "qwen_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "qwen_base_url": os.getenv("QWEN_BASE_URL", "https://aihubmix.com/v1"),
     "index_dir": "./indexes",
     "top_k_retrieval": 20,
     "top_k_rerank": 5,
-    "max_tokens": 1024,
+    "max_tokens": 4096,
     "temperature": 0.1
 }
 
@@ -194,7 +194,8 @@ def generate_answer_with_llm(query: str, context: str) -> str:
         ]
         
         # 打印完整的提示词到日志
-        logger.info(f"构建的提示词（Prompt）: {json.dumps(messages, indent=2, ensure_ascii=False)}")
+        logger.info("构建提示词完成✅")
+        logger.debug(f"构建的提示词（Prompt）: {json.dumps(messages, indent=2, ensure_ascii=False)}")
 
         # 调用Qwen API
         logger.info(f"正在调用Qwen API ({CONFIG['qwen_model']})...")
@@ -206,7 +207,7 @@ def generate_answer_with_llm(query: str, context: str) -> str:
         )
         
         answer = response.choices[0].message.content.strip()
-        logger.info("Qwen API调用成功")
+        logger.info("Qwen API调用成功✅")
         
         return answer if answer else "抱歉，我无法基于提供的上下文生成合适的答案。"
         
@@ -382,9 +383,13 @@ def ask_question(
             progress.update(task, description="答案生成完成")
         
         console.print(Markdown(f"**你问**：{query}\n\n**回答**：{answer}"))
+        ans = (f"**你的问题是**：{query}\n\n**回答**：{answer}")
     except Exception as e:
         console.print(f"[red]处理查询时发生错误: {e}[/red]")
         logger.error(f"查询处理失败: {e}", exc_info=True)
+        ans = f"处理查询时发生错误: {e}"
+    finally:
+        return ans
 
 if __name__ == "__main__":
     app()
