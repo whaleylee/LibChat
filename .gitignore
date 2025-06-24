@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# Environments
+.env
+.conda/
+
+# Data and Indexes
+data/
+indexes/
+
+# Logs
+logs/
+*.log
+
+# Reports
+final_verification_report.json

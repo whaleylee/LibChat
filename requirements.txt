@@ -1,0 +1,23 @@
+# Core
+    python-dotenv
+    typer[all]
+    loguru
+    rich
+
+    # Code Parsing & Analysis
+    tree-sitter
+    tree-sitter-languages
+
+    # RAG & ML
+    llama-index
+    llama-index-embeddings-huggingface
+    llama-index-llms-huggingface
+    sentence-transformers
+    faiss-cpu
+    transformers
+    torch
+    accelerate
+    bitsandbytes
+
+    # BM25
+    rank_bm25
