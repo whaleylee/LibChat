@@ -7,6 +7,8 @@ Faiss Indexer Module
 """
 
 import os
+import networkx as nx
+import pickle
 from typing import List, Any
 from pathlib import Path
 from loguru import logger
@@ -334,6 +336,7 @@ class FaissIndexer:
                                 logger.info(f"成功使用 {encoding} 编码解码 {json_file}")
                                 break
                             except UnicodeDecodeError:
+                                logger.debug(f"尝试使用 {encoding} 解码失败")
                                 continue
                         
                         if content is None:
@@ -350,3 +353,71 @@ class FaissIndexer:
                         logger.info(f"成功修复 {json_file} 的编码问题")
                     except Exception as fix_e:
                         logger.error(f"修复 {json_file} 编码失败: {fix_e}。保留原文件。")
+
+
+def save_knowledge_graph(graph: nx.DiGraph, path: str) -> None:
+    """
+    将知识图谱保存到磁盘
+    
+    使用pickle序列化NetworkX图对象并保存到指定路径。
+    
+    Args:
+        graph (nx.DiGraph): 要保存的知识图谱
+        path (str): 保存路径
+        
+    Raises:
+        Exception: 当保存失败时抛出异常
+    """
+    logger.info(f"开始保存知识图谱到: {path}")
+    
+    try:
+        # 确保目录存在
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        
+        # 使用pickle序列化并保存图对象
+        with open(path, 'wb') as f:
+            pickle.dump(graph, f)
+            
+        logger.info(f"知识图谱成功保存到: {path}")
+        logger.info(f"图谱包含 {len(graph.nodes())} 个节点和 {len(graph.edges())} 条边")
+        
+    except Exception as e:
+        logger.error(f"保存知识图谱失败: {e}")
+        raise
+
+
+def load_knowledge_graph(path: str) -> nx.DiGraph:
+    """
+    从磁盘加载知识图谱
+    
+    使用pickle反序列化从指定路径加载NetworkX图对象。
+    
+    Args:
+        path (str): 图谱文件路径
+        
+    Returns:
+        nx.DiGraph: 加载的知识图谱
+        
+    Raises:
+        FileNotFoundError: 当文件不存在时抛出异常
+        Exception: 当加载失败时抛出异常
+    """
+    logger.info(f"开始从磁盘加载知识图谱: {path}")
+    
+    try:
+        if not os.path.exists(path):
+            logger.error(f"知识图谱文件不存在: {path}")
+            raise FileNotFoundError(f"知识图谱文件不存在: {path}")
+            
+        # 使用pickle反序列化加载图对象
+        with open(path, 'rb') as f:
+            graph = pickle.load(f)
+            
+        logger.info(f"知识图谱成功加载: {path}")
+        logger.info(f"图谱包含 {len(graph.nodes())} 个节点和 {len(graph.edges())} 条边")
+        
+        return graph
+        
+    except Exception as e:
+        logger.error(f"加载知识图谱失败: {e}")
+        raise

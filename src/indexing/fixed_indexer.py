@@ -218,6 +218,9 @@ class FixedIndexer:
             # 添加元数据信息到内容中
             metadata = chunk.metadata
             file_path = metadata.get('file_path', 'unknown')
+            # 确保file_path是字符串，而不是Path对象
+            if isinstance(file_path, Path):
+                file_path = str(file_path)
             language = metadata.get('language', 'unknown')
             node_type = metadata.get('node_type', 'unknown')
             start_line = metadata.get('start_line', 0)
@@ -238,7 +241,7 @@ class FixedIndexer:
                 text=enriched_content,
                 metadata={
                     'chunk_id': i,
-                    'file_path': file_path,
+                    'file_path': str(file_path),  # 确保是字符串
                     'language': language,
                     'node_type': node_type,
                     'start_line': start_line,
@@ -443,6 +446,123 @@ class FixedIndexer:
         
         return info
     
+    def build_index_from_chunks(self, chunks: List[CodeChunk], index_name: str, 
+                                   embedding_model: str = "BAAI/bge-small-en-v1.5",
+                                   metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        从代码块直接构建索引
+        
+        Args:
+            chunks: 代码块列表
+            index_name: 索引名称
+            embedding_model: 嵌入模型名称
+            metadata: 额外的元数据
+            
+        Returns:
+            bool: 是否成功创建索引
+        """
+        logger.info(f"开始从代码块构建索引: {index_name}")
+        
+        try:
+            if not chunks:
+                logger.warning("没有提供代码块")
+                return False
+            
+            # 清理旧索引
+            self._cleanup_old_index(index_name)
+            
+            # 设置嵌入模型
+            logger.info(f"使用嵌入模型: {embedding_model}")
+            if embedding_model and "bge-" in embedding_model:
+                Settings.embed_model = HuggingFaceEmbedding(model_name=embedding_model)
+            else:
+                Settings.embed_model = OpenAIEmbedding(model=embedding_model)
+            
+            # 转换为Document对象
+            documents = self._chunks_to_documents(chunks)
+            
+            # 根据模型确定维度
+            if "m3" in Settings.embed_model.model_name:
+                dimension = 1024
+            elif "large" in Settings.embed_model.model_name:
+                dimension = 1024
+            elif "base" in Settings.embed_model.model_name:
+                dimension = 768
+            elif "small" in Settings.embed_model.model_name:
+                dimension = 384
+            else:
+                dimension = 1536
+            logger.info(f"模型 {Settings.embed_model.model_name} 的维度设置为: {dimension}")
+
+            # 创建Faiss向量存储
+            faiss_index = faiss.IndexFlatL2(dimension)
+            vector_store = FaissVectorStore(faiss_index=faiss_index)
+            
+            # 创建存储上下文
+            storage_context = StorageContext.from_defaults(vector_store=vector_store)
+            
+            # 创建索引
+            logger.info(f"开始创建向量索引，文档数量: {len(documents)}")
+            index = VectorStoreIndex.from_documents(
+                documents, 
+                storage_context=storage_context
+            )
+            
+            # 持久化索引
+            success = self._persist_index_from_chunks(index, storage_context, chunks, index_name, metadata)
+            
+            if success:
+                logger.info("从代码块构建的向量索引创建并持久化成功")
+            else:
+                logger.error("从代码块构建的向量索引持久化失败")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"从代码块构建向量索引失败: {e}", exc_info=True)
+            return False
+    
+    def _persist_index_from_chunks(self, index: VectorStoreIndex, storage_context: StorageContext, 
+                                  chunks: List[CodeChunk], index_name: str, 
+                                  extra_metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        持久化从代码块构建的索引
+        """
+        logger.info("开始持久化从代码块构建的索引...")
+        index_paths = self._get_index_paths(index_name)
+        try:
+            # 使用LlamaIndex的统一持久化方法
+            index.storage_context.persist(persist_dir=str(index_paths["index_dir"]))
+            logger.info(f"索引统一持久化到: {index_paths['index_dir']}")
+
+            # 保存元数据
+            from datetime import datetime
+            from llama_index.core import __version__
+            metadata = {
+                "timestamp": datetime.now().isoformat(),
+                "num_documents": len(index.docstore.docs),
+                "num_chunks": len(chunks),
+                "embedding_model": Settings.embed_model.model_name,
+                "llama_index_version": __version__
+            }
+            
+            # 合并额外元数据，并确保所有路径都是字符串
+            if extra_metadata:
+                for key, value in extra_metadata.items():
+                    if isinstance(value, Path):
+                        metadata[key] = str(value)
+                    else:
+                        metadata[key] = value
+            
+            with open(index_paths["metadata"], 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, ensure_ascii=False, indent=4)
+            logger.info(f"元数据持久化到: {index_paths['metadata']}")
+
+            return True
+        except Exception as e:
+            logger.error(f"持久化从代码块构建的索引失败: {e}")
+            return False
+
     def rebuild_index(self, repo_path: str, index_name: str = "default", embedding_model: str = "BAAI/bge-small-en-v1.5", package_path: Optional[str] = None) -> bool:
         """
         重建索引

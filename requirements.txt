@@ -1,23 +1,30 @@
-# Core
-    python-dotenv
-    typer[all]
-    loguru
-    rich
+# Python 3.10.18
+python-dotenv==1.0.1
+typer[all]==0.9.0
+loguru==0.7.2
+rich==13.7.0
 
-    # Code Parsing & Analysis
-    tree-sitter
-    tree-sitter-languages
+# Code Parsing & Analysis
+tree-sitter==0.21.1
+tree-sitter-languages==1.0.3
 
-    # RAG & ML
-    llama-index
-    llama-index-embeddings-huggingface
-    llama-index-llms-huggingface
-    sentence-transformers
-    faiss-cpu
-    transformers
-    torch
-    accelerate
-    bitsandbytes
+# RAG & ML
+llama-index==0.10.1
+llama-index-embeddings-huggingface==0.1.4
+llama-index-llms-huggingface==0.1.4
+sentence-transformers==2.2.2
+faiss-cpu==1.7.4
+transformers==4.37.2
+torch==2.2.0
+accelerate==0.26.1
+bitsandbytes==0.42.0
 
-    # BM25
-    rank_bm25
+# BM25
+rank_bm25==0.2.2
+
+# Web UI
+flask==3.0.2
+waitress==3.0.0
+
+# GitHub Integration
+GitPython==3.1.40

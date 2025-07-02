@@ -8,7 +8,8 @@ AST Chunker Module
 
 import tree_sitter
 import tree_sitter_languages
-from dataclasses import dataclass
+import networkx as nx
+from dataclasses import dataclass, asdict
 from typing import List, Generator, Dict, Any
 from loguru import logger
 
@@ -23,9 +24,15 @@ class CodeChunk:
     Attributes:
         text (str): 代码块的文本内容
         metadata (dict): 元数据信息，包含文件名和起始行号等
+        node_id (str): 在知识图谱中唯一标识节点的ID
     """
     text: str
     metadata: Dict[str, Any]
+    node_id: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        """将CodeChunk对象转换为字典。"""
+        return asdict(self)
 
 
 class ASTChunker:
@@ -154,7 +161,9 @@ class ASTChunker:
                     }
                     
                     # 创建代码块对象
-                    chunk = CodeChunk(text=chunk_text, metadata=metadata)
+                    # 临时node_id，在create_knowledge_graph中会被重新赋值
+                    temp_node_id = f"{file_path}::{start_row + 1}"
+                    chunk = CodeChunk(text=chunk_text, metadata=metadata, node_id=temp_node_id)
                     chunks.append(chunk)
                     
                     logger.debug(f"创建代码块: {node.type} at lines {start_row + 1}-{end_row + 1}")
@@ -169,6 +178,124 @@ class ASTChunker:
         except Exception as e:
             logger.error(f"解析代码时发生错误: {e}")
             return []
+
+    def create_knowledge_graph(self, source_files: Dict[str, str]) -> nx.DiGraph:
+        """
+        构建代码知识图谱
+
+        遍历所有源文件，创建代码块节点，并建立它们之间的关系（如调用、继承、导入）。
+
+        Args:
+            source_files (Dict[str, str]): 包含文件路径和代码内容的字典
+
+        Returns:
+            nx.DiGraph: 构建完成的知识图谱
+        """
+        logger.info("开始构建知识图谱...")
+        graph = nx.DiGraph()
+        all_chunks = {}
+
+        # 第一遍：创建所有节点
+        logger.info("第一遍：创建所有代码块节点")
+        for file_path, code in source_files.items():
+            chunks = self.chunk_source_code(file_path, code)
+            for chunk in chunks:
+                # 更新node_id的计算方式
+                chunk.node_id = f"{chunk.metadata['file_path']}::{chunk.text.splitlines()[0]}"
+                node_attributes = chunk.to_dict()
+                raw_node_type = chunk.metadata.get('node_type', 'unknown')
+                # 映射到更简洁的类型
+                if raw_node_type == 'function_definition':
+                    node_type = 'function'
+                elif raw_node_type == 'class_definition':
+                    node_type = 'class'
+                else:
+                    node_type = raw_node_type
+                node_attributes['type'] = node_type
+                graph.add_node(chunk.node_id, **node_attributes)
+                all_chunks[chunk.node_id] = chunk
+        logger.info(f"图谱中总共添加了 {len(graph.nodes)} 个节点")
+
+        # 第二遍：创建边（关系）
+        logger.info("第二遍：分析代码关系并创建边")
+        for file_path, code in source_files.items():
+            try:
+                tree = self.parser.parse(code.encode('utf-8'))
+                root_node = tree.root_node
+                self._find_relationships(root_node, file_path, graph, all_chunks)
+            except Exception as e:
+                logger.error(f"在文件 {file_path} 中创建边时出错: {e}")
+
+        logger.info(f"知识图谱构建完成，包含 {len(graph.nodes())} 个节点和 {len(graph.edges())} 条边。")
+        return graph
+
+    def _find_relationships(self, node: tree_sitter.Node, file_path: str, graph: nx.DiGraph, all_chunks: Dict[str, CodeChunk]):
+        """递归遍历AST，寻找并创建代码关系。"""
+        # 可以在这里添加更复杂的逻辑来处理不同类型的关系
+        # 例如，处理继承关系
+        if node.type == 'class_definition':
+            class_name_node = node.child_by_field_name('name')
+            if class_name_node:
+                class_name = class_name_node.text.decode('utf8')
+                caller_node_id = self._find_node_id_by_name(class_name, file_path, all_chunks)
+                if caller_node_id:
+                    # 查找父类
+                    superclass_node = node.child_by_field_name('superclass')
+                    if superclass_node:
+                        parent_class_name = superclass_node.text.decode('utf8')
+                        callee_node_id = self._find_node_id_by_name(parent_class_name, file_path, all_chunks, search_globally=True)
+                        if callee_node_id:
+                            graph.add_edge(caller_node_id, callee_node_id, label='inherits_from')
+                            logger.debug(f"添加继承边: {caller_node_id} -> {callee_node_id}")
+
+        # 处理调用关系
+        if node.type == 'call':
+            # 找到调用者（所在的函数或类）
+            caller_context_node = self._get_context_node(node)
+            if caller_context_node:
+                caller_name_node = caller_context_node.child_by_field_name('name')
+                if caller_name_node:
+                    caller_name = caller_name_node.text.decode('utf8')
+                    caller_node_id = self._find_node_id_by_name(caller_name, file_path, all_chunks)
+                    
+                    # 找到被调用者
+                    callee_name_node = node.child_by_field_name('function')
+                    if callee_name_node and caller_node_id:
+                        callee_name = callee_name_node.text.decode('utf8').split('.')[-1] # 处理 a.b() 的情况
+                        callee_node_id = self._find_node_id_by_name(callee_name, file_path, all_chunks, search_globally=True)
+                        if callee_node_id and caller_node_id != callee_node_id:
+                            graph.add_edge(caller_node_id, callee_node_id, label='calls')
+                            logger.debug(f"添加调用边: {caller_node_id} -> {callee_node_id}")
+
+        # 递归遍历子节点
+        for child in node.children:
+            self._find_relationships(child, file_path, graph, all_chunks)
+
+    def _get_context_node(self, node: tree_sitter.Node) -> tree_sitter.Node | None:
+        """向上遍历AST，找到包含当前节点的函数或类定义。"""
+        current = node.parent
+        while current:
+            if current.type in self.CODE_NODE_TYPES:
+                return current
+            current = current.parent
+        return None
+
+    def _find_node_id_by_name(self, name: str, current_file: str, all_chunks: Dict[str, CodeChunk], search_globally: bool = False) -> str | None:
+        """根据名称查找节点的ID。"""
+        # 优先在当前文件中查找
+        for node_id, chunk in all_chunks.items():
+            if chunk.metadata['file_path'] == current_file:
+                # 简单的名称匹配逻辑
+                if f"def {name}(" in chunk.text or f"class {name}" in chunk.text:
+                    return node_id
+        
+        if search_globally:
+            # 如果需要，则在所有文件中查找
+            for node_id, chunk in all_chunks.items():
+                if f"def {name}(" in chunk.text or f"class {name}" in chunk.text:
+                    return node_id
+        return None
+
     
     def get_chunk_summary(self, chunks: List[CodeChunk]) -> Dict[str, int]:
         """

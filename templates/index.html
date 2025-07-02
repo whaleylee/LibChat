@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibChat - 智能代码问答系统</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .left-panel, .right-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            font-size: 1.4em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #4a5568;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        select, input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .status.loading {
+            background: #ebf8ff;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+
+        .build-option {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .build-option h3 {
+            margin: 0 0 15px 0;
+            color: #2d3748;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .build-option:hover {
+            border-color: #cbd5e0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .answer-section {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .answer-content {
+            line-height: 1.6;
+            color: #2d3748;
+        }
+
+        .sources-section {
+            margin-top: 20px;
+        }
+
+        .source-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .source-meta {
+            font-size: 12px;
+            color: #718096;
+            margin-bottom: 8px;
+        }
+
+        .source-text {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .graph-container {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f7fafc;
+            position: relative;
+        }
+
+        .graph-legend {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.6); 
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+            max-width: 800px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-btn:hover,
+        .close-btn:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        #nodeDetailContent pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 LibChat</h1>
+            <p>基于知识图谱的智能代码问答系统</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 左侧面板：查询界面 -->
+            <div class="left-panel">
+                <!-- 库构建部分 -->
+                <h2 class="section-title">📚 构建知识库</h2>
+                
+                <!-- Python库构建 -->
+                <div class="build-option">
+                    <h3>📚 Python库分析</h3>
+                    <div class="form-group">
+                        <label for="libraryInput">Python库名称:</label>
+                        <input type="text" id="libraryInput" placeholder="例如：typer, fastapi, pandas">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="indexNameInput">索引名称 (可选):</label>
+                        <input type="text" id="indexNameInput" placeholder="留空将自动生成">
+                    </div>
+                    
+                    <button id="checkLibraryBtn" class="btn" style="margin-bottom: 10px;">🔍 检查库状态</button>
+                    <button id="buildIndexBtn" class="btn">🏗️ 构建知识库</button>
+                    
+                    <div id="libraryStatus" class="status hidden"></div>
+                </div>
+                
+                <!-- GitHub仓库构建 -->
+                <div class="build-option">
+                    <h3>🐙 GitHub仓库分析</h3>
+                    <div class="form-group">
+                        <label for="githubUrlInput">GitHub仓库URL:</label>
+                        <input type="text" id="githubUrlInput" placeholder="例如：https://github.com/user/repo">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="githubIndexNameInput">索引名称 (可选):</label>
+                        <input type="text" id="githubIndexNameInput" placeholder="留空将自动生成">
+                    </div>
+                    
+                    <button id="validateGithubBtn" class="btn" style="margin-bottom: 10px;">🔍 验证URL</button>
+                    <button id="buildGithubIndexBtn" class="btn">🏗️ 构建知识库</button>
+                    
+                    <div id="githubStatus" class="status hidden"></div>
+                </div>
+                
+                <!-- 文件夹上传构建 -->
+                <div class="build-option">
+                    <h3>📂 本地文件夹分析</h3>
+                    <div class="form-group">
+                        <label for="folderUploadInput">选择包含代码的ZIP压缩包:</label>
+                        <input type="file" id="folderUploadInput" accept=".zip">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="folderIndexNameInput">索引名称 (可选):</label>
+                        <input type="text" id="folderIndexNameInput" placeholder="留空将自动生成">
+                    </div>
+                    
+                    <button id="buildFolderIndexBtn" class="btn">🏗️ 构建知识库</button>
+                    
+                    <div id="folderStatus" class="status hidden"></div>
+                </div>
+                
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #e2e8f0;">
+                
+                <h2 class="section-title">💬 智能问答</h2>
+                
+                <div class="form-group">
+                    <label for="indexSelect">选择知识库索引:</label>
+                    <select id="indexSelect">
+                        <option value="">请选择索引...</option>
+                        {% for index in indexes %}
+                        <option value="{{ index }}">{{ index }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="questionInput">输入您的问题:</label>
+                    <textarea id="questionInput" placeholder="例如：如何使用typer创建CLI应用？"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="useGraph" checked>
+                        <label for="useGraph">启用图增强检索 (GraphRAG)</label>
+                    </div>
+                </div>
+
+                <button id="queryBtn" class="btn">🔍 开始查询</button>
+
+                <div id="status" class="status hidden"></div>
+
+                <!-- 答案显示区域 -->
+                <div id="answerSection" class="answer-section hidden">
+                    <h3>📝 答案</h3>
+                    <div id="answerContent" class="answer-content"></div>
+                </div>
+
+                <!-- 来源文档显示区域 -->
+                <div id="sourcesSection" class="sources-section hidden">
+                    <h3>📚 相关文档片段</h3>
+                    <div id="sourcesContent"></div>
+                </div>
+            </div>
+
+            <!-- 右侧面板：知识图谱可视化 -->
+            <div class="right-panel">
+                <h2 class="section-title">🕸️ 知识图谱可视化</h2>
+                
+                <div class="graph-container">
+                    <div id="graphViz"></div>
+                    <div class="graph-legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #FF6B6B;"></div>
+                            <span>函数</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #4ECDC4;"></div>
+                            <span>类</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #45B7D1;"></div>
+                            <span>变量</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #96CEB4;"></div>
+                            <span>导入</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #FFEAA7;"></div>
+                            <span>文件</span>
+                        </div>
+                    </div>
+                    <div id="graphPlaceholder" style="display: flex; align-items: center; justify-content: center; height: 100%; color: #718096;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">🕸️</div>
+                            <div>执行查询后将显示知识图谱</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 节点详情模态框 -->
+    <div id="nodeDetailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 id="nodeDetailTitle">节点详情</h2>
+            <div id="nodeDetailCommand" style="background-color: #2d2d2d; color: #f1f1f1; padding: 10px; border-radius: 5px; margin-bottom: 10px; display: none;"></div>
+            <div id="nodeDetailContent"><pre><code></code></pre></div>
+        </div>
+    </div>
+
+    <script>
+        class LibChatApp    {
+            constructor() {
+                this.currentIndex = null;
+                this.initializeEventListeners();
+                this.refreshIndexList();
+            }
+
+            initializeEventListeners() {
+                // 库构建相关事件
+                document.getElementById('checkLibraryBtn').addEventListener('click', () => {
+                    this.checkLibrary();
+                });
+
+                document.getElementById('buildIndexBtn').addEventListener('click', () => {
+                    this.buildLibraryIndex();
+                });
+
+                // GitHub仓库相关事件
+                document.getElementById('validateGithubBtn').addEventListener('click', () => {
+                    this.validateGithubUrl();
+                });
+
+                document.getElementById('buildGithubIndexBtn').addEventListener('click', () => {
+                    this.buildGithubIndex();
+                });
+
+                // 文件夹上传相关事件
+                document.getElementById('buildFolderIndexBtn').addEventListener('click', () => {
+                    this.buildFolderIndex();
+                });
+
+                // 查询相关事件
+                document.getElementById('indexSelect').addEventListener('change', (e) => {
+                    this.loadIndex(e.target.value);
+                });
+
+                document.getElementById('queryBtn').addEventListener('click', () => {
+                    this.executeQuery();
+                });
+
+                // 模态框关闭事件
+                document.querySelector('.close-btn').addEventListener('click', () => {
+                    document.getElementById('nodeDetailModal').style.display = 'none';
+                });
+
+                window.addEventListener('click', (event) => {
+                    const modal = document.getElementById('nodeDetailModal');
+                    if (event.target == modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+
+                document.getElementById('questionInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) {
+                        this.executeQuery();
+                    }
+                });
+            }
+
+            showStatus(message, type = 'loading') {
+                const statusEl = document.getElementById('status');
+                statusEl.className = `status ${type}`;
+                statusEl.innerHTML = type === 'loading' ? `<div class="loading-spinner"></div>${message}` : message;
+                statusEl.classList.remove('hidden');
+            }
+
+            hideStatus() {
+                document.getElementById('status').classList.add('hidden');
+            }
+
+            showLibraryStatus(message, type = 'loading') {
+                const statusEl = document.getElementById('libraryStatus');
+                statusEl.className = `status ${type}`;
+                statusEl.innerHTML = type === 'loading' ? `<div class="loading-spinner"></div>${message}` : message;
+                statusEl.classList.remove('hidden');
+            }
+
+            hideLibraryStatus() {
+                document.getElementById('libraryStatus').classList.add('hidden');
+            }
+
+            showGithubStatus(message, type = 'loading') {
+                const statusEl = document.getElementById('githubStatus');
+                statusEl.className = `status ${type}`;
+                statusEl.innerHTML = type === 'loading' ? `<div class="loading-spinner"></div>${message}` : message;
+                statusEl.classList.remove('hidden');
+            }
+
+            hideGithubStatus() {
+                document.getElementById('githubStatus').classList.add('hidden');
+            }
+
+            showFolderStatus(message, type = 'loading') {
+                const statusEl = document.getElementById('folderStatus');
+                statusEl.className = `status ${type}`;
+                statusEl.innerHTML = type === 'loading' ? `<div class="loading-spinner"></div>${message}` : message;
+                statusEl.classList.remove('hidden');
+            }
+
+            hideFolderStatus() {
+                document.getElementById('folderStatus').classList.add('hidden');
+            }
+
+            async buildFolderIndex() {
+                const fileInput = document.getElementById('folderUploadInput');
+                const indexNameInput = document.getElementById('folderIndexNameInput');
+                const indexName = indexNameInput.value.trim();
+
+                if (fileInput.files.length === 0) {
+                    this.showFolderStatus('❌ 请选择一个ZIP文件', 'error');
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('index_name', indexName);
+
+                this.showFolderStatus('🚀 正在上传并处理文件夹...');
+                document.getElementById('buildFolderIndexBtn').disabled = true;
+
+                try {
+                    const response = await fetch('/api/upload_folder', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.showFolderStatus(`✅ ${result.message}`, 'success');
+                        await this.refreshIndexList();
+                        fileInput.value = '';
+                        indexNameInput.value = '';
+                    } else {
+                        this.showFolderStatus(`❌ ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    this.showFolderStatus(`❌ 构建失败: ${error.message}`, 'error');
+                } finally {
+                    document.getElementById('buildFolderIndexBtn').disabled = false;
+                }
+            }
+
+            async checkLibrary() {
+                const libraryName = document.getElementById('libraryInput').value.trim();
+                
+                if (!libraryName) {
+                    this.showLibraryStatus('❌ 请输入库名称', 'error');
+                    return;
+                }
+
+                this.showLibraryStatus('🔍 检查库状态中...');
+                
+                try {
+                    const response = await fetch('/api/check_library', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ library_name: libraryName })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.error) {
+                        this.showLibraryStatus(`❌ ${result.error}`, 'error');
+                    } else {
+                        const status = result.installed ? '✅ 已安装' : '❌ 未安装';
+                        const type = result.installed ? 'success' : 'error';
+                        this.showLibraryStatus(`${status} - ${result.library_name}`, type);
+                    }
+                } catch (error) {
+                    this.showLibraryStatus(`❌ 检查失败: ${error.message}`, 'error');
+                }
+            }
+
+            async buildLibraryIndex() {
+                const libraryName = document.getElementById('libraryInput').value.trim();
+                const indexName = document.getElementById('indexNameInput').value.trim();
+                
+                if (!libraryName) {
+                    this.showLibraryStatus('❌ 请输入库名称', 'error');
+                    return;
+                }
+
+                this.showLibraryStatus('🏗️ 构建知识库中，这可能需要几分钟...');
+                document.getElementById('buildIndexBtn').disabled = true;
+                
+                try {
+                    const response = await fetch('/api/build_library_index', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            library_name: libraryName,
+                            index_name: indexName
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.showLibraryStatus(`✅ ${result.message}`, 'success');
+                        await this.refreshIndexList();
+                        // 清空输入框
+                        document.getElementById('libraryInput').value = '';
+                        document.getElementById('indexNameInput').value = '';
+                    } else {
+                        this.showLibraryStatus(`❌ ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    this.showLibraryStatus(`❌ 构建失败: ${error.message}`, 'error');
+                } finally {
+                    document.getElementById('buildIndexBtn').disabled = false;
+                }
+            }
+
+            async refreshIndexList() {
+                try {
+                    const response = await fetch('/api/indexes');
+                    const result = await response.json();
+                    
+                    const selectEl = document.getElementById('indexSelect');
+                    // 保存当前选择
+                    const currentValue = selectEl.value;
+                    
+                    // 清空并重新填充选项
+                    selectEl.innerHTML = '<option value="">请选择索引...</option>';
+                    result.indexes.forEach(index => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = index;
+                        selectEl.appendChild(option);
+                    });
+                    
+                    // 恢复选择（如果仍然存在）
+                    if (result.indexes.includes(currentValue)) {
+                        selectEl.value = currentValue;
+                    }
+                } catch (error) {
+                    console.error('刷新索引列表失败:', error);
+                }
+            }
+
+            validateGithubUrl() {
+                const githubUrl = document.getElementById('githubUrlInput').value.trim();
+                
+                if (!githubUrl) {
+                    this.showGithubStatus('❌ 请输入GitHub仓库URL', 'error');
+                    return;
+                }
+
+                // 简单的GitHub URL验证
+                const githubUrlPattern = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/;
+                if (!githubUrlPattern.test(githubUrl)) {
+                    this.showGithubStatus('❌ 请输入有效的GitHub仓库URL格式', 'error');
+                    return;
+                }
+
+                // 提取仓库信息
+                const urlParts = githubUrl.replace('https://github.com/', '').replace(/\/$/, '').split('/');
+                if (urlParts.length !== 2) {
+                    this.showGithubStatus('❌ URL格式不正确，应为: https://github.com/用户名/仓库名', 'error');
+                    return;
+                }
+
+                const [owner, repo] = urlParts;
+                this.showGithubStatus(`✅ URL格式正确 - ${owner}/${repo}`, 'success');
+                
+                // 如果索引名称为空，自动填充
+                const indexNameInput = document.getElementById('githubIndexNameInput');
+                if (!indexNameInput.value.trim()) {
+                    indexNameInput.value = `${owner}-${repo}`;
+                }
+            }
+
+            async buildGithubIndex() {
+                const githubUrl = document.getElementById('githubUrlInput').value.trim();
+                const indexName = document.getElementById('githubIndexNameInput').value.trim();
+                
+                if (!githubUrl) {
+                    this.showGithubStatus('❌ 请输入GitHub仓库URL', 'error');
+                    return;
+                }
+
+                // 验证URL格式
+                const githubUrlPattern = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/;
+                if (!githubUrlPattern.test(githubUrl)) {
+                    this.showGithubStatus('❌ 请输入有效的GitHub仓库URL格式', 'error');
+                    return;
+                }
+
+                this.showGithubStatus('🚀 正在克隆和分析GitHub仓库，这可能需要几分钟...');
+                document.getElementById('buildGithubIndexBtn').disabled = true;
+                
+                try {
+                    const response = await fetch('/api/build_github_index', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            github_url: githubUrl,
+                            index_name: indexName
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.showGithubStatus(`✅ ${result.message}`, 'success');
+                        await this.refreshIndexList();
+                        // 清空输入框
+                        document.getElementById('githubUrlInput').value = '';
+                        document.getElementById('githubIndexNameInput').value = '';
+                    } else {
+                        this.showGithubStatus(`❌ ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    this.showGithubStatus(`❌ 构建失败: ${error.message}`, 'error');
+                } finally {
+                    document.getElementById('buildGithubIndexBtn').disabled = false;
+                }
+            }
+
+            async loadIndex(indexName) {
+                if (!indexName) {
+                    this.currentIndex = null;
+                    return;
+                }
+
+                this.showStatus('正在加载索引...');
+                
+                try {
+                    const response = await fetch('/api/load_index', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ index_name: indexName })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.currentIndex = indexName;
+                        this.showStatus(`✅ ${result.message}`, 'success');
+                        setTimeout(() => this.hideStatus(), 3000);
+                    } else {
+                        this.showStatus(`❌ ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    this.showStatus(`❌ 加载索引失败: ${error.message}`, 'error');
+                }
+            }
+
+            async showNodeDetail(nodeId, nodeType) {
+                const modal = document.getElementById('nodeDetailModal');
+                const titleEl = document.getElementById('nodeDetailTitle');
+                const contentEl = document.getElementById('nodeDetailContent').querySelector('code');
+                const commandEl = document.getElementById('nodeDetailCommand');
+
+                titleEl.textContent = `节点详情: ${nodeId}`;
+                contentEl.textContent = '加载中...';
+                commandEl.style.display = 'none';
+                modal.style.display = 'block';
+
+                if (nodeType === 'function') {
+                    commandEl.textContent = `> view_function ${nodeId}`;
+                    commandEl.style.display = 'block';
+                }
+
+                try {
+                    const response = await fetch(`/api/node_detail?index_name=${this.currentIndex}&node_id=${encodeURIComponent(nodeId)}`);
+                    const result = await response.json();
+
+                    if (result.error) {
+                        contentEl.textContent = `错误: ${result.error}`;
+                    } else {
+                        let displayContent = `ID: ${result.id}\n类型: ${result.type}\n`;
+                        if (result.source_code) {
+                            displayContent += `\n--- 源码 ---\n${result.source_code}`;
+                        }
+                        contentEl.textContent = displayContent;
+                        hljs.highlightElement(contentEl);
+                    }
+                } catch (error) {
+                    contentEl.textContent = `加载失败: ${error.message}`;
+                }
+            }
+
+            async executeQuery() {
+                const question = document.getElementById('questionInput').value.trim();
+                const useGraph = document.getElementById('useGraph').checked;
+
+                if (!this.currentIndex) {
+                    this.showStatus('❌ 请先选择一个索引', 'error');
+                    return;
+                }
+
+                if (!question) {
+                    this.showStatus('❌ 请输入查询问题', 'error');
+                    return;
+                }
+
+                this.showStatus('🔍 正在查询中...');
+                document.getElementById('queryBtn').disabled = true;
+
+                try {
+                    const response = await fetch('/api/query', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            question: question,
+                            index_name: this.currentIndex,
+                            expansion_depth: useGraph ? 2 : 1
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.error) {
+                        this.showStatus(`❌ ${result.error}`, 'error');
+                    } else {
+                        this.hideStatus();
+                        this.displayResults(result);
+                    }
+                } catch (error) {
+                    this.showStatus(`❌ 查询失败: ${error.message}`, 'error');
+                } finally {
+                    document.getElementById('queryBtn').disabled = false;
+                }
+            }
+
+            displayResults(result) {
+                // 显示答案
+                const answerSection = document.getElementById('answerSection');
+                const answerContent = document.getElementById('answerContent');
+                // 使用 marked.js 渲染 Markdown
+                answerContent.innerHTML = marked.parse(result.answer);
+                // 高亮所有代码块
+                document.querySelectorAll('#answerContent pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+                answerSection.classList.remove('hidden');
+
+                // 显示来源文档
+                if (result.source_nodes && result.source_nodes.length > 0) {
+                    const sourcesSection = document.getElementById('sourcesSection');
+                    const sourcesContent = document.getElementById('sourcesContent');
+                    
+                    sourcesContent.innerHTML = result.source_nodes.map((node, index) => `
+                        <div class="source-item">
+                            <div class="source-meta">
+                                📄 ${node.metadata.file_path || '未知文件'} 
+                                (行 ${node.metadata.start_line || '?'}-${node.metadata.end_line || '?'})
+                                ${node.score ? `| 相似度: ${(node.score * 100).toFixed(1)}%` : ''}
+                            </div>
+                            <div class="source-text">${node.text}</div>
+                        </div>
+                    `).join('');
+                    
+                    sourcesSection.classList.remove('hidden');
+                }
+
+                // 显示知识图谱
+                if (result.graph_data && result.graph_data.nodes && result.graph_data.nodes.length > 0) {
+                    this.renderGraph(result.graph_data);
+                } else {
+                    this.showGraphPlaceholder('未使用图增强检索或无图数据');
+                }
+            }
+
+            renderGraph(graphData) {
+                const container = document.getElementById('graphViz');
+                const placeholder = document.getElementById('graphPlaceholder');
+                
+                // 隐藏占位符
+                placeholder.style.display = 'none';
+                
+                // 清空容器
+                container.innerHTML = '';
+                
+                if (!graphData.nodes || graphData.nodes.length === 0) {
+                    this.showGraphPlaceholder('无相关图数据');
+                    return;
+                }
+
+                const width = container.clientWidth;
+                const height = 500;
+
+                const svg = d3.select(container)
+                    .append('svg')
+                    .attr('width', width)
+                    .attr('height', height)
+                    .call(d3.zoom().on("zoom", function (event) {
+                        svg.attr("transform", event.transform)
+                    }))
+                    .append("g");
+
+                // 添加图例
+                const legendData = [
+                    { color: '#FF6B6B', type: '函数' },
+                    { color: '#4ECDC4', type: '类' },
+                    { color: '#45B7D1', type: '变量' },
+                    { color: '#96CEB4', type: '导入' },
+                    { color: '#FFEAA7', type: '文件' },
+                    { color: '#DDA0DD', type: '未知' }
+                ];
+
+                const legend = d3.select(container).append('div')
+                    .attr('class', 'graph-legend');
+
+                legend.selectAll('div')
+                    .data(legendData)
+                    .enter()
+                    .append('div')
+                    .html(d => `<span style="background-color:${d.color}"></span> ${d.type}`);
+
+                // 创建力导向图
+                const simulation = d3.forceSimulation(graphData.nodes)
+                    .force('link', d3.forceLink(graphData.edges).id(d => d.id).distance(100))
+                    .force('charge', d3.forceManyBody().strength(-300))
+                    .force('center', d3.forceCenter(width / 2, height / 2));
+
+                // 绘制边
+                const link = svg.append('g')
+                    .selectAll('line')
+                    .data(graphData.edges)
+                    .enter().append('line')
+                    .attr('stroke', '#999')
+                    .attr('stroke-opacity', 0.6)
+                    .attr('stroke-width', 2);
+
+                // 绘制节点
+                const node = svg.append('g')
+                    .selectAll('circle')
+                    .data(graphData.nodes)
+                    .enter().append('circle')
+                    .attr('r', d => d.size || 10)
+                    .attr('fill', d => d.color || '#69b3a2')
+                    .on("click", (event, d) => {
+                        console.log('Node clicked:', d);
+                        this.showNodeDetail(d.id, d.type);
+                    })
+                    .style('cursor', function(d) { return d.type === 'function' ? 'pointer' : 'default'; })
+                    .attr('stroke', '#fff')
+                    .attr('stroke-width', 2)
+                    .call(d3.drag()
+                        .on('start', dragstarted)
+                        .on('drag', dragged)
+                        .on('end', dragended));
+
+                // 添加节点标签
+                const label = svg.append('g')
+                    .selectAll('text')
+                    .data(graphData.nodes)
+                    .enter().append('text')
+                    .text(d => d.label)
+                    .attr('font-size', 12)
+                    .attr('dx', 15)
+                    .attr('dy', 4);
+
+                // 添加工具提示
+                node.append('title')
+                    .text(d => `${d.full_label || d.label}\n类型: ${d.type}\n文件: ${d.file_path}`);
+
+                // 更新位置
+                simulation.on('tick', () => {
+                    link
+                        .attr('x1', d => d.source.x)
+                        .attr('y1', d => d.source.y)
+                        .attr('x2', d => d.target.x)
+                        .attr('y2', d => d.target.y);
+
+                    node
+                        .attr('cx', d => d.x)
+                        .attr('cy', d => d.y);
+
+                    label
+                        .attr('x', d => d.x)
+                        .attr('y', d => d.y);
+                });
+
+                function dragstarted(event, d) {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x;
+                    d.fy = d.y;
+                }
+
+                function dragged(event, d) {
+                    d.fx = event.x;
+                    d.fy = event.y;
+                }
+
+                function dragended(event, d) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    d.fx = null;
+                    d.fy = null;
+                }
+            }
+
+            showGraphPlaceholder(message) {
+                const container = document.getElementById('graphViz');
+                const placeholder = document.getElementById('graphPlaceholder');
+                
+                container.innerHTML = '';
+                placeholder.style.display = 'flex';
+                placeholder.querySelector('div:last-child').textContent = message;
+            }
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new LibChatApp();
+        });
+    </script>
+</body>
+</html>

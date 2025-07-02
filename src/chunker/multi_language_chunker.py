@@ -193,7 +193,8 @@ class MultiLanguageChunker:
                         'node_type': node.type,
                         'chunk_method': 'tree_sitter'
                     }
-                    chunks.append(CodeChunk(text=chunk_text, metadata=metadata))
+                    temp_node_id = f"{file_path}::{node.start_point[0] + 1}"
+                    chunks.append(CodeChunk(text=chunk_text, metadata=metadata, node_id=temp_node_id))
             
         except Exception as e:
             logger.error(f"tree-sitter分块失败 {file_path}: {e}")
@@ -238,7 +239,8 @@ class MultiLanguageChunker:
                                 'node_type': 'code_block',
                                 'chunk_method': 'regex'
                             }
-                            chunks.append(CodeChunk(text=chunk_text, metadata=metadata))
+                            temp_node_id = f"{file_path}::{current_chunk_start + 1}"
+                            chunks.append(CodeChunk(text=chunk_text, metadata=metadata, node_id=temp_node_id))
                     
                     current_chunk_start = i
                     break
@@ -255,7 +257,8 @@ class MultiLanguageChunker:
                     'node_type': 'code_block',
                     'chunk_method': 'regex'
                 }
-                chunks.append(CodeChunk(text=chunk_text, metadata=metadata))
+                temp_node_id = f"{file_path}::{current_chunk_start + 1}"
+                chunks.append(CodeChunk(text=chunk_text, metadata=metadata, node_id=temp_node_id))
         
         return chunks
     
@@ -279,7 +282,8 @@ class MultiLanguageChunker:
                         'node_type': 'markdown_section',
                         'chunk_method': 'regex'
                     }
-                    chunks.append(CodeChunk(text=section.strip(), metadata=metadata))
+                    temp_node_id = f"{file_path}::{current_line}"
+                    chunks.append(CodeChunk(text=section.strip(), metadata=metadata, node_id=temp_node_id))
                     current_line += lines_count
         else:
             # 按段落分块
@@ -297,7 +301,8 @@ class MultiLanguageChunker:
                         'node_type': 'paragraph',
                         'chunk_method': 'regex'
                     }
-                    chunks.append(CodeChunk(text=paragraph.strip(), metadata=metadata))
+                    temp_node_id = f"{file_path}::{current_line}"
+                    chunks.append(CodeChunk(text=paragraph.strip(), metadata=metadata, node_id=temp_node_id))
                     current_line += lines_count + 1  # +1 for the empty line
         
         return chunks
@@ -313,7 +318,8 @@ class MultiLanguageChunker:
             'node_type': 'config_file',
             'chunk_method': 'whole_file'
         }
-        return [CodeChunk(text=content, metadata=metadata)]
+        temp_node_id = f"{file_path}::1"
+        return [CodeChunk(text=content, metadata=metadata, node_id=temp_node_id)]
     
     def _chunk_by_lines(self, file_path: str, content: str, language: str, chunk_size: int = 50) -> List[CodeChunk]:
         """按行数分块"""
@@ -332,7 +338,8 @@ class MultiLanguageChunker:
                 'node_type': 'line_chunk',
                 'chunk_method': 'line_based'
             }
-            chunks.append(CodeChunk(text=chunk_text, metadata=metadata))
+            temp_node_id = f"{file_path}::{i + 1}"
+            chunks.append(CodeChunk(text=chunk_text, metadata=metadata, node_id=temp_node_id))
         
         return chunks
     
